@@ -46,7 +46,7 @@ export async function getDashboardData(now: Date = new Date()): Promise<Dashboar
     // Low stock: stock <= lowStockLevel (column-to-column comparison).
     prisma.product.findMany({
       where: { stock: { lte: prisma.product.fields.lowStockLevel } },
-      orderBy: [{ stock: "asc" }, { name: "asc" }],
+      orderBy: { name: "asc" },
     }),
   ]);
   return {
