@@ -1,0 +1,58 @@
+// Money is integer paise (₹1 = 100 paise).
+// Quantities are integer base units: kg -> grams, L -> ml, g -> g, pcs/pack -> count.
+// Convert to ₹ / display units only in src/lib/format.ts.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Product {
+  id            Int        @id @default(autoincrement())
+  name          String
+  category      String // validated by zod: CATEGORIES in src/lib/constants.ts
+  unit          String // validated by zod: "kg" | "g" | "L" | "pcs" | "pack"
+  price         Int // paise per 1 display unit (per kg, per L, per g, per piece/pack)
+  stock         Int // base units
+  lowStockLevel Int // base units
+  createdAt     DateTime   @default(now())
+  billItems     BillItem[]
+
+  @@index([name])
+  @@index([category])
+}
+
+model Bill {
+  id           Int        @id @default(autoincrement())
+  billNumber   String     @unique // "B-0001"
+  customerName String?
+  subtotal     Int // paise
+  discount     Int        @default(0) // paise
+  total        Int // paise
+  paymentMode  String // validated by zod: "Cash" | "UPI" | "Card"
+  createdAt    DateTime   @default(now())
+  items        BillItem[]
+
+  @@index([createdAt])
+}
+
+model BillItem {
+  id          Int    @id @default(autoincrement())
+  billId      Int
+  productId   Int
+  productName String // snapshot at billing time
+  unit        String // snapshot, so quantity stays readable if the product's unit is edited
+  unitPrice   Int // paise per display unit, snapshot
+  quantity    Int // base units
+  lineTotal   Int // paise
+
+  bill    Bill    @relation(fields: [billId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([billId])
+  @@index([productId])
+}

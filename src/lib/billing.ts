@@ -1,0 +1,67 @@
+// Pure billing rules: no database access, so client components (the live bill
+// total) can import this too. Transactional writes live in billing-server.ts.
+//
+// Money is integer paise. Quantities are integer base units (g, ml, count).
+
+import { unitFactor, type Unit } from "./constants";
+import { formatPaise, formatQty } from "./format";
+import type { BillItemInput } from "./validation";
+
+/** A user-facing rule violation. Its message is safe to show in the ErrorBox. */
+export class BillingError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "BillingError";
+  }
+}
+
+/**
+ * Line total in paise. `unitPricePaise` is per display unit (per kg, per L, per piece),
+ * `quantity` is in base units. This is the ONLY place money is rounded.
+ */
+export function computeLineTotalPaise(unitPricePaise: number, quantity: number, unit: Unit): number {
+  return Math.round((unitPricePaise * quantity) / unitFactor(unit));
+}
+
+export type BillTotals = { subtotalPaise: number; discountPaise: number; totalPaise: number };
+
+/** Plain integer sums. Call discountError first; this does not clamp. */
+export function computeTotals(lineTotalsPaise: readonly number[], discountPaise: number): BillTotals {
+  const subtotalPaise = lineTotalsPaise.reduce((sum, line) => sum + line, 0);
+  return { subtotalPaise, discountPaise, totalPaise: subtotalPaise - discountPaise };
+}
+
+export function discountError(subtotalPaise: number, discountPaise: number): string | null {
+  return discountPaise > subtotalPaise
+    ? `Discount (${formatPaise(discountPaise)}) can't be more than the subtotal (${formatPaise(subtotalPaise)})`
+    : null;
+}
+
+type StockInfo = { name: string; unit: Unit; stock: number };
+
+export function stockError(product: StockInfo, quantity: number): string | null {
+  return quantity > product.stock
+    ? `Not enough stock for ${product.name}: only ${formatQty(product.stock, product.unit)} left, ` +
+        `you tried to bill ${formatQty(quantity, product.unit)}`
+    : null;
+}
+
+export function isLowStock(product: { stock: number; lowStockLevel: number }): boolean {
+  return product.stock <= product.lowStockLevel;
+}
+
+/** Combines lines for the same product, so stock is checked against the total quantity. */
+export function mergeDuplicateItems(items: readonly BillItemInput[]): BillItemInput[] {
+  const byProduct = new Map<number, number>();
+  for (const item of items) {
+    byProduct.set(item.productId, (byProduct.get(item.productId) ?? 0) + item.quantity);
+  }
+  return Array.from(byProduct, ([productId, quantity]) => ({ productId, quantity }));
+}
+
+/** "B-0007" -> "B-0008"; no previous bill -> "B-0001". Grows past 4 digits after B-9999. */
+export function nextBillNumber(lastBillNumber: string | null | undefined): string {
+  const match = lastBillNumber ? /^B-(\d+)$/.exec(lastBillNumber) : null;
+  const next = match ? Number(match[1]) + 1 : 1;
+  return `B-${String(next).padStart(4, "0")}`;
+}
