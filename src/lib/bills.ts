@@ -9,12 +9,19 @@ import type { ProductRow } from "./products";
 
 export type BillListRow = Bill & { itemCount: number };
 
-export async function listBills(): Promise<BillListRow[]> {
+/** Search by bill number or customer name (case-insensitive for English letters in SQLite). */
+export async function listBills(filters: { q?: string } = {}): Promise<BillListRow[]> {
+  const q = filters.q?.trim();
   const bills = await prisma.bill.findMany({
+    where: q ? { OR: [{ billNumber: { contains: q } }, { customerName: { contains: q } }] } : {},
     orderBy: { id: "desc" },
     include: { _count: { select: { items: true } } },
   });
   return bills.map(({ _count, ...bill }) => ({ ...bill, itemCount: _count.items }));
+}
+
+export async function countBills(): Promise<number> {
+  return prisma.bill.count();
 }
 
 export type BillItemRow = Omit<BillItem, "unit"> & { unit: Unit };
