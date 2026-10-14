@@ -1,10 +1,12 @@
+import Link from "next/link";
 import { CATEGORIES, UNITS } from "@/lib/constants";
-import { baseQtyToInput, paiseToRupeesInput } from "@/lib/format";
+import { baseQtyToInput, formatQty, paiseToRupeesInput } from "@/lib/format";
 import type { ProductRow } from "@/lib/products";
 import { Card } from "./Layout";
 import { Field, SelectField } from "./Field";
 import { SubmitButton } from "./SubmitButton";
 import { LinkButton } from "./Button";
+import { labelClasses } from "./ui";
 
 type ProductFormProps = {
   action: (formData: FormData) => Promise<void>;
@@ -51,15 +53,29 @@ export function ProductForm({ action, product, submitLabel }: ProductFormProps) 
           defaultValue={product ? paiseToRupeesInput(product.price) : undefined}
         />
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field
-            label="Stock"
-            name="stock"
-            required
-            inputMode="decimal"
-            placeholder="e.g. 25"
-            hint="In the unit above. kg and L allow up to 3 decimals."
-            defaultValue={product ? baseQtyToInput(product.stock, product.unit) : "0"}
-          />
+          {product ? (
+            // Stock isn't editable here: it changes only via Add stock and bills.
+            <div className="space-y-1">
+              <p className={labelClasses}>Stock</p>
+              <p className="py-2">{formatQty(product.stock, product.unit)}</p>
+              <Link
+                href={`/products/${product.id}/stock`}
+                className="text-sm font-medium text-emerald-800 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+              >
+                Add stock
+              </Link>
+            </div>
+          ) : (
+            <Field
+              label="Opening stock"
+              name="stock"
+              required
+              inputMode="decimal"
+              placeholder="e.g. 25"
+              hint="In the unit above. kg and L allow up to 3 decimals. Later, use Add stock."
+              defaultValue="0"
+            />
+          )}
           <Field
             label="Low-stock level"
             name="lowStockLevel"

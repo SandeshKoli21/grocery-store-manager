@@ -4,7 +4,7 @@ import type { Product } from "@prisma/client";
 import { prisma } from "./db";
 import { CATEGORIES, type Category, type Unit } from "./constants";
 import { BillingError, toUnit } from "./billing";
-import type { ProductInput } from "./validation";
+import type { ProductInput, ProductUpdateInput } from "./validation";
 
 export type ProductRow = Omit<Product, "unit"> & { unit: Unit };
 
@@ -42,8 +42,8 @@ export async function createProduct(input: ProductInput): Promise<ProductRow> {
   return prisma.$transaction(async (tx) => toRow(await tx.product.create({ data: input })));
 }
 
-/** Full edit, including stock (the form re-enters stock in the chosen unit). */
-export async function updateProduct(id: number, input: ProductInput): Promise<ProductRow> {
+/** Edits everything except stock, which changes only via Add stock and bills. */
+export async function updateProduct(id: number, input: ProductUpdateInput): Promise<ProductRow> {
   return prisma.$transaction(async (tx) => {
     const existing = await tx.product.findUnique({ where: { id }, select: { id: true } });
     if (!existing) throw new BillingError("Product not found");

@@ -43,15 +43,17 @@ function parseQtyField(text: string, unit: Unit, label: string): number | string
 
 // ---- Products ----
 
-export const productSchema = z
-  .object({
-    name: z.string({ required_error: "Name is required" }).trim().min(1, "Name is required").max(100),
-    category: z.enum(CATEGORIES, { errorMap: () => ({ message: "Pick a category" }) }),
-    unit: z.enum(UNITS, { errorMap: () => ({ message: "Pick a unit" }) }),
-    price: pricePaise,
-    stock: qtyText,
-    lowStockLevel: qtyText,
-  })
+const productFields = z.object({
+  name: z.string({ required_error: "Name is required" }).trim().min(1, "Name is required").max(100),
+  category: z.enum(CATEGORIES, { errorMap: () => ({ message: "Pick a category" }) }),
+  unit: z.enum(UNITS, { errorMap: () => ({ message: "Pick a unit" }) }),
+  price: pricePaise,
+  lowStockLevel: qtyText,
+});
+
+/** Add product. Opening stock is entered once; after that it changes only via Add stock and bills. */
+export const productSchema = productFields
+  .extend({ stock: qtyText })
   .transform((v, ctx) => {
     const stock = parseQtyField(v.stock, v.unit, "Stock");
     const lowStockLevel = parseQtyField(v.lowStockLevel, v.unit, "Low-stock level");
@@ -64,6 +66,17 @@ export const productSchema = z
     return { ...v, stock, lowStockLevel };
   });
 export type ProductInput = z.infer<typeof productSchema>;
+
+/** Edit product. No stock field, so an edit can't overwrite stock changed by a bill meanwhile. */
+export const productUpdateSchema = productFields.transform((v, ctx) => {
+  const lowStockLevel = parseQtyField(v.lowStockLevel, v.unit, "Low-stock level");
+  if (typeof lowStockLevel === "string") {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["lowStockLevel"], message: lowStockLevel });
+    return z.NEVER;
+  }
+  return { ...v, lowStockLevel };
+});
+export type ProductUpdateInput = z.infer<typeof productUpdateSchema>;
 
 export const productIdSchema = z.object({ productId: id });
 

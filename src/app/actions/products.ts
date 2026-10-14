@@ -5,7 +5,13 @@ import { redirect } from "next/navigation";
 import { toUserMessage } from "@/lib/billing";
 import { addStock } from "@/lib/billing-server";
 import { createProduct, deleteProduct, updateProduct } from "@/lib/products";
-import { addStockSchema, firstIssueMessage, productIdSchema, productSchema } from "@/lib/validation";
+import {
+  addStockSchema,
+  firstIssueMessage,
+  productIdSchema,
+  productSchema,
+  productUpdateSchema,
+} from "@/lib/validation";
 import { withError } from "@/lib/urls";
 
 function revalidateStockPages() {
@@ -34,7 +40,7 @@ export async function updateProductAction(formData: FormData) {
   const { productId } = idParsed.data;
   const editPath = `/products/${productId}/edit`;
 
-  const parsed = productSchema.safeParse(Object.fromEntries(formData));
+  const parsed = productUpdateSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) redirect(withError(editPath, firstIssueMessage(parsed.error)));
 
   let name: string;
