@@ -61,6 +61,17 @@ create customer bills, and see what is running low.
 - Login/users, GST/tax, suppliers & purchase orders, barcode scanning,
   returns/refunds, online orders, printing to a thermal printer
 
+## v2 backlog
+Known issues from the v1 code review, deferred on purpose:
+- **Error/success messages come straight from the URL.** `?error=` and `?success=`
+  text is shown as written in the address (`src/components/Feedback.tsx`,
+  `src/app/products/page.tsx`). React escapes it, so it isn't XSS, but a crafted
+  link can show any message inside the app's own red or green box. Fix: pass a
+  message code and look the text up from a fixed list.
+- **Per-gram prices can't show some real prices.** A `g` product's price is whole
+  paise per gram, so ₹425/kg (42.5 paise/g) can't be entered. Fix: store prices for
+  `g` products per kg (or per 100 g), or allow fractional-paise unit prices.
+
 ## Conventions
 - Server Actions for all writes
 - Pages in src/app, shared UI in src/components, logic in src/lib
