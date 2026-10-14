@@ -103,22 +103,25 @@ export function BillForm({ products }: Props) {
       setPickError(Number.isNaN(quantity) ? qtyRuleMessage(product.unit) : "Quantity must be more than 0");
       return;
     }
-    const isNewLine = !lines.some((line) => line.productId === product.id);
-    if (isNewLine && lines.length >= MAX_BILL_ITEMS) {
-      setPickError(`A bill can have at most ${MAX_BILL_ITEMS} items. Save this bill and start a new one.`);
-      return;
+    const existing = lines.find((line) => line.productId === product.id);
+    if (!existing) {
+      if (lines.length >= MAX_BILL_ITEMS) {
+        setPickError(`A bill can have at most ${MAX_BILL_ITEMS} items. Save this bill and start a new one.`);
+        return;
+      }
+      setLines([...lines, { productId: product.id, qtyText: pickQty.trim() }]);
+    } else {
+      // Same product again: add to the existing line instead of creating a duplicate.
+      // If that line's quantity is invalid, don't overwrite what the user was typing.
+      const existingQty = toBaseQty(existing.qtyText, product.unit);
+      if (Number.isNaN(existingQty)) {
+        setPickError(`${product.name} is already on the bill with an invalid quantity. Fix it below first.`);
+        return;
+      }
+      const merged = baseQtyToInput(existingQty + quantity, product.unit);
+      setLines(lines.map((line) => (line.productId === product.id ? { ...line, qtyText: merged } : line)));
     }
     setPickError(null);
-    setLines((current) => {
-      const existing = current.find((line) => line.productId === product.id);
-      if (!existing) return [...current, { productId: product.id, qtyText: pickQty.trim() }];
-      // Same product again: add to the existing line instead of creating a duplicate.
-      const existingQty = toBaseQty(existing.qtyText, product.unit);
-      const merged = Number.isNaN(existingQty) ? quantity : existingQty + quantity;
-      return current.map((line) =>
-        line.productId === product.id ? { ...line, qtyText: baseQtyToInput(merged, product.unit) } : line,
-      );
-    });
     setPickId("");
     setPickQty("1");
   }
