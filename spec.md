@@ -77,7 +77,7 @@ Known issues from the v1 code review, deferred on purpose:
 - Pages in src/app, shared UI in src/components, logic in src/lib
 - Business rules (stock check, totals, rounding) live in src/lib/billing.ts
 - Errors shown via ?error= message in a red box
-- Seed script: ~40 common Indian grocery products across all categories, 3 sample bills
+- Seed script: ~1500 Indian grocery products across all categories (40 hand-picked plus a generated brand × type × size catalog), 3 sample bills
 
 ## Definition of done
 `npm install && npx prisma migrate dev && npm run seed -- --force && npm run dev`
