@@ -1,5 +1,6 @@
 // Seeds ~40 common Indian grocery products and 3 sample bills.
-// Re-runnable: it clears existing bills and products first.
+// DESTRUCTIVE: it deletes ALL existing bills and products first, so it refuses
+// to run without --force (`npm run seed -- --force`).
 //
 // Products go through the same zod schema as the Add product form (₹ and
 // display quantities in, paise and base units out). Bills go through
@@ -80,6 +81,15 @@ const BILLS: SeedBill[] = [
 ];
 
 async function main() {
+  if (!process.argv.includes("--force")) {
+    console.error(
+      "Refusing to seed: this deletes ALL products and bills.\n" +
+        "If that's what you want, run: npm run seed -- --force",
+    );
+    process.exitCode = 1;
+    return;
+  }
+
   await prisma.billItem.deleteMany();
   await prisma.bill.deleteMany();
   await prisma.product.deleteMany();

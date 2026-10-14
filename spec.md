@@ -57,7 +57,7 @@ create customer bills, and see what is running low.
 - Seed script: ~40 common Indian grocery products across all categories, 3 sample bills
 
 ## Definition of done
-`npm install && npx prisma migrate dev && npm run seed && npm run dev`
+`npm install && npx prisma migrate dev && npm run seed -- --force && npm run dev`
 runs with no errors, all 6 features work at localhost:3003, and:
 - billing more than stock is blocked with a clear error
 - after a bill, stock goes down by exactly the billed quantity
