@@ -4,7 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import { saveBillAction } from "@/app/actions/bills";
 import { readDraft, writeDraft } from "@/lib/bill-draft";
 import { PAYMENT_MODES, type PaymentMode, type Unit } from "@/lib/constants";
-import { computeLineTotalPaise, computeTotals, discountError, isLowStock, stockError } from "@/lib/billing";
+import {
+  computeLineTotalPaise,
+  computeTotals,
+  discountError,
+  isLowStock,
+  stockError,
+  subtotalError,
+} from "@/lib/billing";
 import { baseQtyToInput, formatPaise, formatQty, qtyRuleMessage, rupeesToPaise, toBaseQty } from "@/lib/format";
 import { Card } from "./Layout";
 import { Field, SelectField } from "./Field";
@@ -75,11 +82,13 @@ export function BillForm({ products }: Props) {
     rows.map((row) => row.lineTotalPaise),
     Number.isNaN(discountPaise) ? 0 : discountPaise,
   );
-  const discountProblem = Number.isNaN(discountPaise)
-    ? "Enter a valid discount in ₹ (up to 2 decimals)"
-    : discountError(totals.subtotalPaise, totals.discountPaise);
+  const totalsProblem =
+    subtotalError(totals.subtotalPaise) ??
+    (Number.isNaN(discountPaise)
+      ? "Enter a valid discount in ₹ (up to 2 decimals)"
+      : discountError(totals.subtotalPaise, totals.discountPaise));
   const hasLineErrors = rows.some((row) => row.error);
-  const canSave = rows.length > 0 && !hasLineErrors && !discountProblem;
+  const canSave = rows.length > 0 && !hasLineErrors && !totalsProblem;
   const itemsJson = JSON.stringify(rows.map((row) => ({ productId: row.product.id, quantity: row.quantity })));
 
   // ---- Cart editing ----
@@ -233,7 +242,7 @@ export function BillForm({ products }: Props) {
               placeholder="0"
               value={discountText}
               onChange={(e) => setDiscountText(e.target.value)}
-              aria-invalid={discountProblem ? true : undefined}
+              aria-invalid={totalsProblem ? true : undefined}
             />
             <SelectField
               label="Payment mode"
@@ -251,9 +260,9 @@ export function BillForm({ products }: Props) {
               ))}
             </SelectField>
           </div>
-          {discountProblem && (
+          {totalsProblem && (
             <p role="alert" className="text-sm font-medium text-red-700">
-              ⚠ {discountProblem}
+              ⚠ {totalsProblem}
             </p>
           )}
 
@@ -268,7 +277,7 @@ export function BillForm({ products }: Props) {
             </div>
             <div className="flex justify-between text-lg font-bold">
               <dt>Total</dt>
-              <dd data-testid="bill-total">{formatPaise(discountProblem ? totals.subtotalPaise : totals.totalPaise)}</dd>
+              <dd data-testid="bill-total">{formatPaise(totalsProblem ? totals.subtotalPaise : totals.totalPaise)}</dd>
             </div>
           </dl>
 

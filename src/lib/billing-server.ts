@@ -12,8 +12,10 @@ import {
   mergeDuplicateItems,
   nextBillNumber,
   stockError,
+  subtotalError,
   toUnit,
 } from "./billing";
+import { MAX_QTY } from "./constants";
 import type { AddStockInput, SaveBillInput } from "./validation";
 
 function isUniqueViolation(error: unknown): boolean {
@@ -68,8 +70,9 @@ async function createBillOnce(input: SaveBillInput): Promise<CreatedBill> {
       lines.map((line) => line.lineTotal),
       input.discount,
     );
-    const discountProblem = discountError(totals.subtotalPaise, totals.discountPaise);
-    if (discountProblem) throw new BillingError(discountProblem);
+    const totalsProblem =
+      subtotalError(totals.subtotalPaise) ?? discountError(totals.subtotalPaise, totals.discountPaise);
+    if (totalsProblem) throw new BillingError(totalsProblem);
 
     // 4. Decrement stock. The `gte` guard re-checks stock atomically in the UPDATE itself,
     //    so a concurrent bill can never push stock below zero.
@@ -111,6 +114,7 @@ export async function addStock(input: AddStockInput): Promise<void> {
     const quantity = toBaseQty(input.quantity, unit);
     if (Number.isNaN(quantity)) throw new BillingError(qtyRuleMessage(unit));
     if (quantity <= 0) throw new BillingError("Quantity to add must be more than 0");
+    if (product.stock + quantity > MAX_QTY) throw new BillingError("That would make stock too large. Check the quantity.");
 
     await tx.product.update({
       where: { id: product.id },

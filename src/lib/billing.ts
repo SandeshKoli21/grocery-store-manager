@@ -3,7 +3,7 @@
 //
 // Money is integer paise. Quantities are integer base units (g, ml, count).
 
-import { isUnit, unitFactor, type Unit } from "./constants";
+import { isUnit, MAX_BILL_PAISE, unitFactor, type Unit } from "./constants";
 import { formatPaise, formatQty } from "./format";
 import type { BillItemInput } from "./validation";
 
@@ -31,9 +31,15 @@ export function toUnit(value: string): Unit {
 /**
  * Line total in paise. `unitPricePaise` is per display unit (per kg, per L, per piece),
  * `quantity` is in base units. This is the ONLY place money is rounded.
+ *
+ * Uses BigInt so `unitPricePaise * quantity` can't lose precision past 2^53;
+ * rounds half up, like Math.round for these non-negative values.
+ * An oversized result is caught by subtotalError.
  */
 export function computeLineTotalPaise(unitPricePaise: number, quantity: number, unit: Unit): number {
-  return Math.round((unitPricePaise * quantity) / unitFactor(unit));
+  const factor = BigInt(unitFactor(unit));
+  const doubled = BigInt(2) * BigInt(unitPricePaise) * BigInt(quantity);
+  return Number((doubled + factor) / (BigInt(2) * factor));
 }
 
 export type BillTotals = { subtotalPaise: number; discountPaise: number; totalPaise: number };
@@ -50,7 +56,13 @@ export function discountError(subtotalPaise: number, discountPaise: number): str
     : null;
 }
 
-type StockInfo = { name: string; unit: Unit; stock: number };
+export function subtotalError(subtotalPaise: number): string | null {
+  return subtotalPaise > MAX_BILL_PAISE
+    ? `Bill subtotal (${formatPaise(subtotalPaise)}) can't be more than ${formatPaise(MAX_BILL_PAISE)}`
+    : null;
+}
+
+type StockInfo ={ name: string; unit: Unit; stock: number };
 
 export function stockError(product: StockInfo, quantity: number): string | null {
   return quantity > product.stock

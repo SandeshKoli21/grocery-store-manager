@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { CATEGORIES, PAYMENT_MODES, UNITS } from "./constants";
-import { qtyRuleMessage, rupeesToPaise, toBaseQty } from "./format";
+import { CATEGORIES, MAX_BILL_PAISE, MAX_PRICE_PAISE, MAX_QTY, PAYMENT_MODES, UNITS, type Unit } from "./constants";
+import { formatPaise, formatQty, qtyRuleMessage, rupeesToPaise, toBaseQty } from "./format";
 
 // Form values arrive as strings (or are missing). Schemas take
 // Object.fromEntries(formData) and output DB-ready values: money in paise,
@@ -14,7 +14,8 @@ const pricePaise = z.preprocess(
   z
     .number({ invalid_type_error: "Enter a valid amount in ₹ (up to 2 decimals)" })
     .int()
-    .positive("Price must be more than ₹0"),
+    .positive("Price must be more than ₹0")
+    .max(MAX_PRICE_PAISE, `Price can't be more than ${formatPaise(MAX_PRICE_PAISE)}`),
 );
 
 /** ₹ text -> paise; blank means no discount. */
@@ -23,13 +24,22 @@ const discountPaise = z.preprocess(
   z
     .number({ invalid_type_error: "Enter a valid discount in ₹ (up to 2 decimals)" })
     .int()
-    .nonnegative("Discount can't be negative"),
+    .nonnegative("Discount can't be negative")
+    .max(MAX_BILL_PAISE, `Discount can't be more than ${formatPaise(MAX_BILL_PAISE)}`),
 );
 
 /** Quantity text in display units; converted per unit once the unit is known. */
 const qtyText = z.string({ required_error: "Required" }).trim().min(1, "Required");
 
 const id = z.coerce.number().int().positive();
+
+/** Display-quantity text -> base units, or an error message (format, or over MAX_QTY). */
+function parseQtyField(text: string, unit: Unit, label: string): number | string {
+  const base = toBaseQty(text, unit);
+  if (Number.isNaN(base)) return `${label}: ${qtyRuleMessage(unit)}`;
+  if (base > MAX_QTY) return `${label} can't be more than ${formatQty(MAX_QTY, unit)}`;
+  return base;
+}
 
 // ---- Products ----
 
@@ -43,19 +53,13 @@ export const productSchema = z
     lowStockLevel: qtyText,
   })
   .transform((v, ctx) => {
-    const stock = toBaseQty(v.stock, v.unit);
-    const lowStockLevel = toBaseQty(v.lowStockLevel, v.unit);
-    if (Number.isNaN(stock)) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["stock"], message: `Stock: ${qtyRuleMessage(v.unit)}` });
+    const stock = parseQtyField(v.stock, v.unit, "Stock");
+    const lowStockLevel = parseQtyField(v.lowStockLevel, v.unit, "Low-stock level");
+    if (typeof stock === "string") ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["stock"], message: stock });
+    if (typeof lowStockLevel === "string") {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["lowStockLevel"], message: lowStockLevel });
     }
-    if (Number.isNaN(lowStockLevel)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["lowStockLevel"],
-        message: `Low-stock level: ${qtyRuleMessage(v.unit)}`,
-      });
-    }
-    if (Number.isNaN(stock) || Number.isNaN(lowStockLevel)) return z.NEVER;
+    if (typeof stock === "string" || typeof lowStockLevel === "string") return z.NEVER;
     // toBaseQty only accepts non-negative digits, so stock >= 0 and lowStockLevel >= 0 here.
     return { ...v, stock, lowStockLevel };
   });
@@ -78,7 +82,7 @@ export type AddStockInput = z.infer<typeof addStockSchema>;
 /** One cart line. The client converts the quantity to base units with toBaseQty before submitting. */
 export const billItemSchema = z.object({
   productId: z.number().int().positive(),
-  quantity: z.number().int().positive("Quantity must be more than 0"),
+  quantity: z.number().int().positive("Quantity must be more than 0").max(MAX_QTY, "Quantity is too large"),
 });
 export type BillItemInput = z.infer<typeof billItemSchema>;
 

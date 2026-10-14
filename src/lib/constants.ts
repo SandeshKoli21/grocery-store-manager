@@ -31,6 +31,22 @@ export const UNIT_DECIMALS: Record<Unit, number> = {
   pack: 0,
 };
 
+// ---- Limits ----
+// Prisma `Int` columns are 32-bit: a larger value can be written to SQLite but
+// then makes every read of that row fail. Keep every stored number inside these.
+
+/** Largest value a Prisma Int column can hold. */
+export const MAX_DB_INT = 2_147_483_647;
+
+/** Highest price per display unit: ₹1,00,000. */
+export const MAX_PRICE_PAISE = 10_000_000;
+
+/** Highest bill subtotal (and so discount and total): ₹1,00,00,000. */
+export const MAX_BILL_PAISE = 1_000_000_000;
+
+/** Highest stock, low-stock level, or billed/added quantity, in base units. */
+export const MAX_QTY = MAX_DB_INT;
+
 export function unitFactor(unit: Unit): number {
   return 10 ** UNIT_DECIMALS[unit];
 }
