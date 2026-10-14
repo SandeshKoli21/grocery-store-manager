@@ -3,7 +3,6 @@
 
 import { Prisma } from "@prisma/client";
 import { prisma } from "./db";
-import { isUnit, type Unit } from "./constants";
 import { qtyRuleMessage, toBaseQty } from "./format";
 import {
   BillingError,
@@ -13,13 +12,9 @@ import {
   mergeDuplicateItems,
   nextBillNumber,
   stockError,
+  toUnit,
 } from "./billing";
 import type { AddStockInput, SaveBillInput } from "./validation";
-
-function toUnit(value: string): Unit {
-  if (!isUnit(value)) throw new BillingError(`Unknown unit "${value}"`);
-  return value;
-}
 
 function isUniqueViolation(error: unknown): boolean {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
@@ -27,9 +22,11 @@ function isUniqueViolation(error: unknown): boolean {
 
 /**
  * Creates a bill, its items, and decrements stock for every item in ONE transaction.
- * Any BillingError thrown inside rolls back everything. Returns the new bill's id.
+ * Any BillingError thrown inside rolls back everything.
  */
-export async function createBill(input: SaveBillInput): Promise<number> {
+export type CreatedBill = { id: number; billNumber: string };
+
+export async function createBill(input: SaveBillInput): Promise<CreatedBill> {
   // Bill numbers are generated inside the transaction; @unique on billNumber is the backstop.
   // If two saves race for the same number, retry once with a fresh number.
   try {
@@ -40,7 +37,7 @@ export async function createBill(input: SaveBillInput): Promise<number> {
   }
 }
 
-async function createBillOnce(input: SaveBillInput): Promise<number> {
+async function createBillOnce(input: SaveBillInput): Promise<CreatedBill> {
   const items = mergeDuplicateItems(input.items);
 
   return prisma.$transaction(async (tx) => {
@@ -98,9 +95,9 @@ async function createBillOnce(input: SaveBillInput): Promise<number> {
         paymentMode: input.paymentMode,
         items: { create: lines },
       },
-      select: { id: true },
+      select: { id: true, billNumber: true },
     });
-    return bill.id;
+    return bill;
   });
 }
 

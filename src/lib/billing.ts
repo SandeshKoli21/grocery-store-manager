@@ -3,7 +3,7 @@
 //
 // Money is integer paise. Quantities are integer base units (g, ml, count).
 
-import { unitFactor, type Unit } from "./constants";
+import { isUnit, unitFactor, type Unit } from "./constants";
 import { formatPaise, formatQty } from "./format";
 import type { BillItemInput } from "./validation";
 
@@ -13,6 +13,19 @@ export class BillingError extends Error {
     super(message);
     this.name = "BillingError";
   }
+}
+
+/** Message for ?error=: BillingError text as-is, anything else logged and replaced. */
+export function toUserMessage(error: unknown): string {
+  if (error instanceof BillingError) return error.message;
+  console.error(error);
+  return "Something went wrong. Please try again.";
+}
+
+/** Narrows a unit string from the database. */
+export function toUnit(value: string): Unit {
+  if (!isUnit(value)) throw new BillingError(`Unknown unit "${value}"`);
+  return value;
 }
 
 /**
