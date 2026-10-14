@@ -56,6 +56,12 @@ export const MAX_BILL_PAISE = 1_000_000_000;
 /** Highest stock, low-stock level, or billed/added quantity, in base units. */
 export const MAX_QTY = MAX_DB_INT;
 
+/** Most lines one bill can have. Keeps a single save transaction small. */
+export const MAX_BILL_ITEMS = 100;
+
+/** Longest accepted items JSON: MAX_BILL_ITEMS lines with plenty of room each. */
+export const MAX_BILL_ITEMS_JSON_LENGTH = MAX_BILL_ITEMS * 100;
+
 export function unitFactor(unit: Unit): number {
   return 10 ** UNIT_DECIMALS[unit];
 }

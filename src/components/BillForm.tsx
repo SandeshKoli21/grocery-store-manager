@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { saveBillAction } from "@/app/actions/bills";
 import { readDraft, writeDraft } from "@/lib/bill-draft";
-import { PAYMENT_MODES, type PaymentMode, type Unit } from "@/lib/constants";
+import { MAX_BILL_ITEMS, PAYMENT_MODES, type PaymentMode, type Unit } from "@/lib/constants";
 import {
   computeLineTotalPaise,
   computeTotals,
@@ -101,6 +101,11 @@ export function BillForm({ products }: Props) {
     const quantity = toBaseQty(pickQty, product.unit);
     if (Number.isNaN(quantity) || quantity <= 0) {
       setPickError(Number.isNaN(quantity) ? qtyRuleMessage(product.unit) : "Quantity must be more than 0");
+      return;
+    }
+    const isNewLine = !lines.some((line) => line.productId === product.id);
+    if (isNewLine && lines.length >= MAX_BILL_ITEMS) {
+      setPickError(`A bill can have at most ${MAX_BILL_ITEMS} items. Save this bill and start a new one.`);
       return;
     }
     setPickError(null);

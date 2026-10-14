@@ -1,5 +1,15 @@
 import { z } from "zod";
-import { CATEGORIES, MAX_BILL_PAISE, MAX_PRICE_PAISE, MAX_QTY, PAYMENT_MODES, UNITS, type Unit } from "./constants";
+import {
+  CATEGORIES,
+  MAX_BILL_ITEMS,
+  MAX_BILL_ITEMS_JSON_LENGTH,
+  MAX_BILL_PAISE,
+  MAX_PRICE_PAISE,
+  MAX_QTY,
+  PAYMENT_MODES,
+  UNITS,
+  type Unit,
+} from "./constants";
 import { formatPaise, formatQty, qtyRuleMessage, rupeesToPaise, toBaseQty } from "./format";
 
 // Form values arrive as strings (or are missing). Schemas take
@@ -118,6 +128,7 @@ export const saveBillSchema = z.object({
   paymentMode: z.enum(PAYMENT_MODES, { errorMap: () => ({ message: "Pick a payment mode" }) }),
   items: z
     .string({ required_error: "Add at least one product" })
+    .max(MAX_BILL_ITEMS_JSON_LENGTH, `A bill can have at most ${MAX_BILL_ITEMS} items`)
     .transform((text, ctx): unknown => {
       try {
         return JSON.parse(text);
@@ -126,7 +137,12 @@ export const saveBillSchema = z.object({
         return z.NEVER;
       }
     })
-    .pipe(z.array(billItemSchema).min(1, "Add at least one product")),
+    .pipe(
+      z
+        .array(billItemSchema)
+        .min(1, "Add at least one product")
+        .max(MAX_BILL_ITEMS, `A bill can have at most ${MAX_BILL_ITEMS} items`),
+    ),
 });
 export type SaveBillInput = z.infer<typeof saveBillSchema>;
 
