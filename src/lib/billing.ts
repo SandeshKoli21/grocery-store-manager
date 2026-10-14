@@ -3,7 +3,7 @@
 //
 // Money is integer paise. Quantities are integer base units (g, ml, count).
 
-import { isUnit, MAX_BILL_PAISE, unitFactor, type Unit } from "./constants";
+import { BASE_UNIT, isUnit, MAX_BILL_PAISE, unitFactor, type Unit } from "./constants";
 import { formatPaise, formatQty } from "./format";
 import type { BillItemInput } from "./validation";
 
@@ -69,6 +69,27 @@ export function stockError(product: StockInfo, quantity: number): string | null 
     ? `Not enough stock for ${product.name}: only ${formatQty(product.stock, product.unit)} left, ` +
         `you tried to bill ${formatQty(quantity, product.unit)}`
     : null;
+}
+
+/**
+ * Why a product's unit can't change, or null. Billed products keep their unit so
+ * history stays consistent. Stored stock is in base units, so with stock on hand
+ * the unit may only move to one with the same base unit (kg <-> g, pcs <-> pack).
+ */
+export function unitChangeError(
+  product: StockInfo,
+  newUnit: Unit,
+  onAnyBill: boolean,
+): string | null {
+  if (newUnit === product.unit) return null;
+  if (onAnyBill) return `Can't change the unit of ${product.name}: it's already on a bill.`;
+  if (product.stock > 0 && BASE_UNIT[newUnit] !== BASE_UNIT[product.unit]) {
+    return (
+      `Can't change the unit of ${product.name} from ${product.unit} to ${newUnit} ` +
+      `while ${formatQty(product.stock, product.unit)} is in stock. Delete the product and add it again.`
+    );
+  }
+  return null;
 }
 
 export function isLowStock(product: { stock: number; lowStockLevel: number }): boolean {

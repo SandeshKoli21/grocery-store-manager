@@ -11,11 +11,13 @@ import { labelClasses } from "./ui";
 type ProductFormProps = {
   action: (formData: FormData) => Promise<void>;
   product?: ProductRow;
+  /** True once the product is on a bill: the unit is shown but can't be changed. */
+  unitLocked?: boolean;
   submitLabel: string;
 };
 
 /** Add/edit product form. Prices are entered in ₹, quantities in the selected unit. */
-export function ProductForm({ action, product, submitLabel }: ProductFormProps) {
+export function ProductForm({ action, product, unitLocked = false, submitLabel }: ProductFormProps) {
   return (
     <Card>
       <form action={action} className="space-y-4">
@@ -32,16 +34,32 @@ export function ProductForm({ action, product, submitLabel }: ProductFormProps) 
               </option>
             ))}
           </SelectField>
-          <SelectField label="Unit" name="unit" required defaultValue={product?.unit ?? ""}>
-            <option value="" disabled>
-              Choose a unit
-            </option>
-            {UNITS.map((unit) => (
-              <option key={unit} value={unit}>
-                {unit}
+          <div className="space-y-1">
+            {/* A disabled select isn't submitted, so a locked unit is sent as a hidden field. */}
+            {unitLocked && product && <input type="hidden" name="unit" value={product.unit} />}
+            <SelectField
+              label="Unit"
+              name={unitLocked ? "unitDisplay" : "unit"}
+              required
+              disabled={unitLocked}
+              defaultValue={product?.unit ?? ""}
+              aria-describedby={unitLocked ? "unit-locked-hint" : undefined}
+            >
+              <option value="" disabled>
+                Choose a unit
               </option>
-            ))}
-          </SelectField>
+              {UNITS.map((unit) => (
+                <option key={unit} value={unit}>
+                  {unit}
+                </option>
+              ))}
+            </SelectField>
+            {unitLocked && (
+              <p id="unit-locked-hint" className="text-sm text-gray-600">
+                This product is on a bill, so its unit can&apos;t change.
+              </p>
+            )}
+          </div>
         </div>
         <Field
           label="Price (₹ per unit)"

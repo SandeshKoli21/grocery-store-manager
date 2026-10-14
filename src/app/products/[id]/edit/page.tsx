@@ -4,7 +4,7 @@ import { ErrorBox } from "@/components/Feedback";
 import { Card, PageHeader } from "@/components/Layout";
 import { ProductForm } from "@/components/ProductForm";
 import { SubmitButton } from "@/components/SubmitButton";
-import { getProduct } from "@/lib/products";
+import { getProduct, isOnAnyBill } from "@/lib/products";
 import { parseId, type SearchParams } from "@/lib/urls";
 
 export const dynamic = "force-dynamic";
@@ -15,12 +15,13 @@ export default async function EditProductPage({ params, searchParams }: Props) {
   const id = parseId(params.id);
   const product = id ? await getProduct(id) : null;
   if (!product) notFound();
+  const unitLocked = await isOnAnyBill(product.id);
 
   return (
     <div className="space-y-4">
       <PageHeader title={`Edit ${product.name}`} />
       <ErrorBox message={searchParams.error} />
-      <ProductForm action={updateProductAction} product={product} submitLabel="Save changes" />
+      <ProductForm action={updateProductAction} product={product} unitLocked={unitLocked} submitLabel="Save changes" />
 
       <Card className="space-y-2">
         <h2 className="font-semibold">Delete product</h2>

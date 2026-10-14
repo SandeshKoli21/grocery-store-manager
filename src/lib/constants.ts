@@ -17,6 +17,15 @@ export type Unit = (typeof UNITS)[number];
 export const PAYMENT_MODES = ["Cash", "UPI", "Card"] as const;
 export type PaymentMode = (typeof PAYMENT_MODES)[number];
 
+/** The base unit each unit is stored in. Units sharing one can swap without converting stock. */
+export const BASE_UNIT: Record<Unit, "g" | "ml" | "count"> = {
+  kg: "g",
+  g: "g",
+  L: "ml",
+  pcs: "count",
+  pack: "count",
+};
+
 /**
  * Quantities are stored as integers in the smallest unit:
  * kg -> grams, L -> ml, g -> g, pcs/pack -> count.
