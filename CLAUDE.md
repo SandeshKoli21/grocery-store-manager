@@ -16,7 +16,7 @@ Grocery Store Manager (v1): a web app for a small kirana shop owner to manage pr
 npm install                 # install dependencies
 npx prisma migrate dev      # create/apply migrations + generate client
 npx prisma generate         # regenerate Prisma client after schema edits
-npm run seed -- --force     # DELETES all data, then seeds ~40 products + 3 sample bills
+npm run seed -- --force     # DELETES all data, then seeds ~1500 products + 3 sample bills
 npm run dev                 # dev server at http://localhost:3003
 npm run build               # production build
 npm run lint                # ESLint

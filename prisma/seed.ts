@@ -1,4 +1,5 @@
-// Seeds ~40 common Indian grocery products and 3 sample bills.
+// Seeds ~40 hand-picked Indian grocery products, a generated catalog of ~1450
+// more (prisma/catalog.ts), and 3 sample bills.
 // DESTRUCTIVE: it deletes ALL existing bills and products first, so it refuses
 // to run without --force (`npm run seed -- --force`).
 //
@@ -11,6 +12,7 @@ import { createBill } from "../src/lib/billing-server";
 import { createProduct } from "../src/lib/products";
 import { productSchema, saveBillSchema } from "../src/lib/validation";
 import { formatPaise } from "../src/lib/format";
+import { buildCatalog } from "./catalog";
 
 // [name, category, unit, price ₹ per unit, stock, low-stock level]
 type SeedProduct = [string, string, string, string, string, string];
@@ -95,12 +97,13 @@ async function main() {
   await prisma.product.deleteMany();
 
   const idsByName = new Map<string, number>();
-  for (const [name, category, unit, price, stock, lowStockLevel] of PRODUCTS) {
+  const catalog = [...PRODUCTS, ...buildCatalog(PRODUCTS.map(([name]) => name))];
+  for (const [name, category, unit, price, stock, lowStockLevel] of catalog) {
     const data = productSchema.parse({ name, category, unit, price, stock, lowStockLevel });
     const product = await createProduct(data);
     idsByName.set(name, product.id);
   }
-  console.log(`Created ${PRODUCTS.length} products`);
+  console.log(`Created ${catalog.length} products`);
 
   for (const [customerName, paymentMode, discount, lines] of BILLS) {
     const items = lines.map(([name, quantity]) => {

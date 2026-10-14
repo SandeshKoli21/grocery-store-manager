@@ -33,6 +33,23 @@ export async function countProducts(): Promise<number> {
   return prisma.product.count();
 }
 
+export type CategoryCount = { category: Category; count: number };
+
+/** How many products match `q` in each category (ignores any category filter), in CATEGORIES order. */
+export async function countMatchesByCategory(q: string): Promise<CategoryCount[]> {
+  const term = q.trim();
+  const groups = await prisma.product.groupBy({
+    by: ["category"],
+    where: term ? { name: { contains: term } } : {},
+    _count: { _all: true },
+  });
+  const counts = new Map(groups.map((g) => [g.category, g._count._all]));
+  return CATEGORIES.flatMap((category) => {
+    const count = counts.get(category) ?? 0;
+    return count > 0 ? [{ category, count }] : [];
+  });
+}
+
 export async function isOnAnyBill(productId: number): Promise<boolean> {
   return (await prisma.billItem.count({ where: { productId } })) > 0;
 }

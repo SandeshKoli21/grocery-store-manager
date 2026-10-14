@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { LinkButton } from "@/components/Button";
 import { EmptyState, ErrorBox } from "@/components/Feedback";
+import { Field } from "@/components/Field";
 import { PageHeader } from "@/components/Layout";
-import { listBills } from "@/lib/bills";
+import { buttonClasses } from "@/components/ui";
+import { countBills, listBills } from "@/lib/bills";
 import { formatDateTime } from "@/lib/dates";
 import { formatPaise } from "@/lib/format";
-import type { SearchParams } from "@/lib/urls";
+import { getParam, type SearchParams } from "@/lib/urls";
 
 export const dynamic = "force-dynamic";
 
@@ -14,21 +16,46 @@ const billLink =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600";
 
 export default async function BillsPage({ searchParams }: { searchParams: SearchParams }) {
-  const bills = await listBills();
+  const q = getParam(searchParams.q) ?? "";
+  const [bills, total] = await Promise.all([listBills({ q }), countBills()]);
 
   return (
     <div className="space-y-4">
       <PageHeader
         title="Bills"
-        description={`${bills.length} bill${bills.length === 1 ? "" : "s"}`}
+        description={`${total} bill${total === 1 ? "" : "s"}`}
         action={<LinkButton href="/billing">New bill</LinkButton>}
       />
       <ErrorBox message={searchParams.error} />
 
-      {bills.length === 0 ? (
+      {total > 0 && (
+        <form method="get" className="grid gap-4 sm:grid-cols-4 sm:items-end" role="search">
+          <div className="sm:col-span-3">
+            <Field
+              label="Search by bill number or customer"
+              name="q"
+              type="search"
+              defaultValue={q}
+              placeholder="e.g. B-0001 or Ramesh"
+            />
+          </div>
+          <button type="submit" className={buttonClasses("secondary")}>
+            Search
+          </button>
+        </form>
+      )}
+
+      {total === 0 ? (
         <EmptyState message="No bills yet. Create your first bill." actionHref="/billing" actionLabel="New bill" />
+      ) : bills.length === 0 ? (
+        <EmptyState message="No bills match your search." actionHref="/bills" actionLabel="Clear search" />
       ) : (
         <>
+          {q !== "" && (
+            <p className="text-sm text-gray-600">
+              Showing {bills.length} of {total}
+            </p>
+          )}
           <ul className="space-y-2 sm:hidden">
             {bills.map((bill) => (
               <li key={bill.id} className="space-y-1 rounded-lg border border-gray-200 bg-white p-4">

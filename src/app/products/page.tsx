@@ -3,19 +3,25 @@ import { EmptyState, ErrorBox, SuccessBox } from "@/components/Feedback";
 import { Field, SelectField } from "@/components/Field";
 import { PageHeader } from "@/components/Layout";
 import { ProductTable } from "@/components/ProductTable";
+import { SearchSummary } from "@/components/SearchSummary";
 import { buttonClasses } from "@/components/ui";
 import { CATEGORIES } from "@/lib/constants";
-import { countProducts, listProducts } from "@/lib/products";
+import { countMatchesByCategory, countProducts, isCategory, listProducts } from "@/lib/products";
 import { getParam, type SearchParams } from "@/lib/urls";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProductsPage({ searchParams }: { searchParams: SearchParams }) {
   const q = getParam(searchParams.q) ?? "";
-  const category = getParam(searchParams.category) ?? "";
+  const rawCategory = getParam(searchParams.category);
+  const category = isCategory(rawCategory) ? rawCategory : "";
   const success = getParam(searchParams.success);
-  const [products, total] = await Promise.all([listProducts({ q, category }), countProducts()]);
-  const filtering = q !== "" || category !== "";
+  const [products, total, byCategory] = await Promise.all([
+    listProducts({ q, category }),
+    countProducts(),
+    q.trim() ? countMatchesByCategory(q) : Promise.resolve([]),
+  ]);
+  const filtering = q.trim() !== "" || category !== "";
 
   return (
     <div className="space-y-4">
@@ -46,19 +52,16 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
         </form>
       )}
 
+      {total > 0 && filtering && (
+        <SearchSummary q={q.trim()} category={category} shown={products.length} byCategory={byCategory} />
+      )}
+
       {total === 0 ? (
         <EmptyState message="No products yet. Add your first product to start billing." actionHref="/products/new" actionLabel="Add product" />
       ) : products.length === 0 ? (
         <EmptyState message="No products match your search." actionHref="/products" actionLabel="Clear search" />
       ) : (
-        <>
-          {filtering && (
-            <p className="text-sm text-gray-600">
-              Showing {products.length} of {total}
-            </p>
-          )}
-          <ProductTable products={products} />
-        </>
+        <ProductTable products={products} />
       )}
     </div>
   );
