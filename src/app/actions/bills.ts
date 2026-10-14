@@ -22,6 +22,5 @@ export async function saveBillAction(formData: FormData) {
   revalidatePath("/products");
   revalidatePath("/billing");
   revalidatePath("/bills");
-  // TODO(step 7): redirect to the printable bill at /bills/${bill.id}.
-  redirect(`/billing?saved=${encodeURIComponent(bill.billNumber)}`);
+  redirect(`/bills/${bill.id}?saved=1`);
 }

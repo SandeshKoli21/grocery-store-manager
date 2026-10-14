@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { z } from "zod";
 import { saveBillAction } from "@/app/actions/bills";
+import { readDraft, writeDraft } from "@/lib/bill-draft";
 import { PAYMENT_MODES, type PaymentMode, type Unit } from "@/lib/constants";
 import { computeLineTotalPaise, computeTotals, discountError, isLowStock, stockError } from "@/lib/billing";
 import { baseQtyToInput, formatPaise, formatQty, qtyRuleMessage, rupeesToPaise, toBaseQty } from "@/lib/format";
@@ -23,39 +23,9 @@ export type BillProduct = {
 
 type CartLine = { productId: number; qtyText: string };
 
-// The draft survives an error redirect or reload. It's per tab, never trusted by the server.
-const DRAFT_KEY = "grocery-app:bill-draft";
-const draftSchema = z.object({
-  lines: z.array(z.object({ productId: z.number().int(), qtyText: z.string() })),
-  customerName: z.string(),
-  discountText: z.string(),
-  paymentMode: z.enum(PAYMENT_MODES),
-});
-type Draft = z.infer<typeof draftSchema>;
+type Props = { products: BillProduct[] };
 
-function readDraft(): Draft | null {
-  try {
-    const raw = window.sessionStorage.getItem(DRAFT_KEY);
-    if (!raw) return null;
-    const parsed = draftSchema.safeParse(JSON.parse(raw));
-    return parsed.success ? parsed.data : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeDraft(draft: Draft | null) {
-  try {
-    if (draft) window.sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-    else window.sessionStorage.removeItem(DRAFT_KEY);
-  } catch {
-    // Storage unavailable (private mode etc.): the form still works, just without a draft.
-  }
-}
-
-type Props = { products: BillProduct[]; savedBillNumber?: string };
-
-export function BillForm({ products, savedBillNumber }: Props) {
+export function BillForm({ products }: Props) {
   const productsById = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
 
   const [lines, setLines] = useState<CartLine[]>([]);
@@ -69,19 +39,15 @@ export function BillForm({ products, savedBillNumber }: Props) {
 
   // Restore after mount (not during render) to avoid a hydration mismatch.
   useEffect(() => {
-    if (savedBillNumber) {
-      writeDraft(null);
-    } else {
-      const draft = readDraft();
-      if (draft) {
-        setLines(draft.lines.filter((line) => productsById.has(line.productId)));
-        setCustomerName(draft.customerName);
-        setDiscountText(draft.discountText);
-        setPaymentMode(draft.paymentMode);
-      }
+    const draft = readDraft();
+    if (draft) {
+      setLines(draft.lines.filter((line) => productsById.has(line.productId)));
+      setCustomerName(draft.customerName);
+      setDiscountText(draft.discountText);
+      setPaymentMode(draft.paymentMode);
     }
     setDraftLoaded(true);
-    // Runs once per mount; the page remounts the form after each saved bill.
+    // Runs once per mount. The bill page clears the draft after a successful save.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
