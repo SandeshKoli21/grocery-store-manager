@@ -81,14 +81,27 @@ export type ProductUpdateInput = z.infer<typeof productUpdateSchema>;
 export const productIdSchema = z.object({ productId: id });
 
 /**
- * Restock. The quantity is converted to base units in billing-server.ts,
- * because the product's unit has to come from the database, not the form.
+ * Restock. Built per product, because the unit has to come from the database,
+ * not the form. Outputs the quantity in base units, plus the unit it was
+ * converted with so the write can check the product's unit hasn't changed since.
  */
-export const addStockSchema = z.object({
-  productId: id,
-  quantity: qtyText,
-});
-export type AddStockInput = z.infer<typeof addStockSchema>;
+export function addStockSchema(unit: Unit) {
+  return z
+    .object({
+      productId: id,
+      quantity: qtyText.transform((text, ctx) => {
+        const base = parseQtyField(text, unit, "Quantity to add");
+        if (typeof base === "string" || base === 0) {
+          const message = typeof base === "string" ? base : "Quantity to add must be more than 0";
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message });
+          return z.NEVER;
+        }
+        return base;
+      }),
+    })
+    .transform((v) => ({ ...v, unit }));
+}
+export type AddStockInput = z.infer<ReturnType<typeof addStockSchema>>;
 
 // ---- Bills ----
 

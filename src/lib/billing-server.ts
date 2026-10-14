@@ -3,7 +3,6 @@
 
 import { Prisma } from "@prisma/client";
 import { prisma } from "./db";
-import { qtyRuleMessage, toBaseQty } from "./format";
 import {
   BillingError,
   computeLineTotalPaise,
@@ -104,16 +103,15 @@ async function createBillOnce(input: SaveBillInput): Promise<CreatedBill> {
   });
 }
 
-/** Restock: converts the display quantity using the product's unit, then increments stock. */
+/** Restock: increments stock by a quantity already validated and converted by addStockSchema. */
 export async function addStock(input: AddStockInput): Promise<void> {
+  const { quantity } = input;
   await prisma.$transaction(async (tx) => {
     const product = await tx.product.findUnique({ where: { id: input.productId } });
     if (!product) throw new BillingError("Product not found");
-    const unit = toUnit(product.unit);
-
-    const quantity = toBaseQty(input.quantity, unit);
-    if (Number.isNaN(quantity)) throw new BillingError(qtyRuleMessage(unit));
-    if (quantity <= 0) throw new BillingError("Quantity to add must be more than 0");
+    if (product.unit !== input.unit) {
+      throw new BillingError(`${product.name}'s unit changed while you were adding stock. Please try again.`);
+    }
     if (product.stock + quantity > MAX_QTY) throw new BillingError("That would make stock too large. Check the quantity.");
 
     await tx.product.update({

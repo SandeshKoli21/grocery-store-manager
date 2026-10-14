@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { toUserMessage } from "@/lib/billing";
 import { addStock } from "@/lib/billing-server";
-import { createProduct, deleteProduct, updateProduct } from "@/lib/products";
+import { createProduct, deleteProduct, getProduct, updateProduct } from "@/lib/products";
 import {
   addStockSchema,
   firstIssueMessage,
@@ -69,13 +69,22 @@ export async function deleteProductAction(formData: FormData) {
 }
 
 export async function addStockAction(formData: FormData) {
-  const parsed = addStockSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) {
-    const productId = Number(formData.get("productId"));
-    const back = Number.isInteger(productId) && productId > 0 ? `/products/${productId}/stock` : "/products";
-    redirect(withError(back, firstIssueMessage(parsed.error)));
+  const idParsed = productIdSchema.safeParse(Object.fromEntries(formData));
+  if (!idParsed.success) redirect(withError("/products", "Product not found"));
+  const { productId } = idParsed.data;
+  const stockPath = `/products/${productId}/stock`;
+
+  // The quantity is validated in the product's unit, so load the product first.
+  let product: Awaited<ReturnType<typeof getProduct>>;
+  try {
+    product = await getProduct(productId);
+  } catch (error: unknown) {
+    redirect(withError(stockPath, toUserMessage(error)));
   }
-  const stockPath = `/products/${parsed.data.productId}/stock`;
+  if (!product) redirect(withError("/products", "Product not found"));
+
+  const parsed = addStockSchema(product.unit).safeParse(Object.fromEntries(formData));
+  if (!parsed.success) redirect(withError(stockPath, firstIssueMessage(parsed.error)));
 
   try {
     await addStock(parsed.data);
